@@ -270,11 +270,107 @@ window.sincronizarConFirebase = async function() {
         localStorage.setItem('productos', JSON.stringify(productosFirebase));
         localStorage.setItem('sedes', JSON.stringify(sedesFirebase));
 
+        // Reconstruir inventario desde los movimientos de Firebase
+        const inventarioReconstruido = {};
+        const historialReconstruido = [];
+        const fechasVencimientoReconstruido = {};
+        const lotesReconstruido = {};
+        
+        // Procesar movimientos para reconstruir inventario
+        movimientosFirebase.forEach(movimiento => {
+            const clave = `${movimiento.producto}_${movimiento.sede}`;
+            
+            // Inicializar producto en inventario si no existe
+            if (!inventarioReconstruido[clave]) {
+                inventarioReconstruido[clave] = {
+                    producto: movimiento.producto,
+                    cantidad: 0,
+                    sede: movimiento.sede
+                };
+            }
+            
+            // Actualizar cantidad según tipo de movimiento
+            if (movimiento.tipo === 'entrada') {
+                inventarioReconstruido[clave].cantidad += movimiento.cantidad;
+            } else if (movimiento.tipo === 'salida' || movimiento.tipo === 'devolucion') {
+                inventarioReconstruido[clave].cantidad -= movimiento.cantidad;
+            }
+            
+            // Agregar al historial
+            historialReconstruido.push(movimiento);
+            
+            // Procesar fechas de vencimiento y lotes si existen
+            if (movimiento.fechaVencimiento && movimiento.fechaVencimiento !== 'Sin fecha') {
+                if (!fechasVencimientoReconstruido[clave]) {
+                    fechasVencimientoReconstruido[clave] = [];
+                }
+                fechasVencimientoReconstruido[clave].push({
+                    fecha: movimiento.fechaVencimiento,
+                    cantidad: movimiento.cantidad,
+                    lote: movimiento.lote || 'Sin lote',
+                    fechaEntrada: movimiento.timestamp
+                });
+            }
+            
+            if (movimiento.lote && movimiento.lote !== 'Sin lote') {
+                if (!lotesReconstruido[clave]) {
+                    lotesReconstruido[clave] = [];
+                }
+                
+                // Calcular días restantes si hay fecha de vencimiento
+                let diasRestantes = null;
+                if (movimiento.fechaVencimiento && movimiento.fechaVencimiento !== 'Sin fecha') {
+                    const fechaVenc = new Date(movimiento.fechaVencimiento);
+                    const hoy = new Date();
+                    diasRestantes = Math.ceil((fechaVenc - hoy) / (1000 * 60 * 60 * 24));
+                }
+                
+                lotesReconstruido[clave].push({
+                    lote: movimiento.lote,
+                    cantidad: movimiento.cantidad,
+                    fechaVencimiento: movimiento.fechaVencimiento || 'Sin fecha',
+                    fecha: movimiento.fechaVencimiento || 'Sin fecha',
+                    diasRestantes: diasRestantes,
+                    fechaEntrada: movimiento.timestamp
+                });
+            }
+        });
+        
+        // Actualizar localStorage con datos reconstruidos
+        localStorage.setItem('inventario', JSON.stringify(inventarioReconstruido));
+        localStorage.setItem('historial', JSON.stringify(historialReconstruido));
+        localStorage.setItem('fechasVencimiento', JSON.stringify(fechasVencimientoReconstruido));
+        localStorage.setItem('lotes', JSON.stringify(lotesReconstruido));
+        
+        // Actualizar variables globales si están disponibles
+        if (typeof window !== 'undefined') {
+            if (window.inventario) window.inventario = inventarioReconstruido;
+            if (window.historial) window.historial = historialReconstruido;
+            if (window.fechasVencimiento) window.fechasVencimiento = fechasVencimientoReconstruido;
+            if (window.lotes) window.lotes = lotesReconstruido;
+        }
+
         console.log('✅ Datos sincronizados con Firebase');
+        console.log(`📊 Inventario reconstruido: ${Object.keys(inventarioReconstruido).length} productos`);
+        console.log(`📋 Historial sincronizado: ${historialReconstruido.length} movimientos`);
         actualizarIndicadorFirebase('connected', 'Datos sincronizados con Firebase');
         
         // Mostrar notificación de éxito
         mostrarNotificacionFirebase('Datos sincronizados exitosamente', 'success');
+        
+        // Actualizar la interfaz si las funciones están disponibles
+        if (typeof window !== 'undefined') {
+            if (window.mostrarStockActual) {
+                setTimeout(() => {
+                    window.mostrarStockActual();
+                }, 500);
+            }
+            if (window.mostrarHistorial) {
+                setTimeout(() => {
+                    window.mostrarHistorial();
+                }, 500);
+            }
+        }
         
         return true;
     } catch (error) {
