@@ -22550,6 +22550,11 @@
                     <i class="bi bi-cloud-arrow-up icono-boton"></i>
                     <span>SYNC FIREBASE</span>
                 </button>
+                
+                <button class="boton-menu firebase" onclick="debugFirebase()" style="background: #6c757d;">
+                    <i class="bi bi-bug icono-boton"></i>
+                    <span>DEBUG FIREBASE</span>
+                </button>
             
             </div>
         </div>
@@ -30213,14 +30218,27 @@
                 // Sincronizar automáticamente con Firebase al cargar
                 if (window.sincronizarConFirebase) {
                     console.log('🔄 Iniciando sincronización automática con Firebase...');
+                    console.log('📊 Datos locales antes de sincronizar:');
+                    console.log('  - Inventario:', Object.keys(inventario).length, 'productos');
+                    console.log('  - Historial:', historial.length, 'movimientos');
+                    
                     setTimeout(async () => {
                         try {
+                            console.log('🚀 Ejecutando sincronización automática...');
                             await sincronizarConFirebase();
                             console.log('✅ Sincronización automática completada');
+                            
+                            // Recargar datos después de sincronizar
+                            console.log('🔄 Recargando datos después de sincronización...');
+                            cargarDatos();
+                            
                         } catch (error) {
-                            console.warn('⚠️ Error en sincronización automática:', error);
+                            console.error('❌ Error en sincronización automática:', error);
+                            console.error('Detalles del error:', error.message);
                         }
-                    }, 1000); // Esperar 1 segundo para que la página termine de cargar
+                    }, 2000); // Esperar 2 segundos para que Firebase esté listo
+                } else {
+                    console.warn('⚠️ Función sincronizarConFirebase no está disponible');
                 }
                 
                 return true;
@@ -30855,6 +30873,56 @@
                     // Por ahora, mantenemos el estado como conectado
                 }
             }, 30000);
+        }
+
+        // Función de debugging para Firebase
+        async function debugFirebase() {
+            console.log('🔍 === DEBUG FIREBASE ===');
+            
+            // Verificar autenticación
+            console.log('🔐 Estado de autenticación:', auth.currentUser ? 'Autenticado' : 'No autenticado');
+            if (auth.currentUser) {
+                console.log('👤 Usuario:', auth.currentUser.uid);
+            }
+            
+            // Verificar datos locales
+            console.log('📱 Datos locales:');
+            console.log('  - Inventario:', Object.keys(inventario).length, 'productos');
+            console.log('  - Historial:', historial.length, 'movimientos');
+            console.log('  - Productos en localStorage:', JSON.parse(localStorage.getItem('productos') || '[]').length);
+            console.log('  - Movimientos en localStorage:', JSON.parse(localStorage.getItem('movimientos') || '[]').length);
+            
+            // Intentar obtener datos de Firebase
+            try {
+                console.log('🔥 Obteniendo datos de Firebase...');
+                const movimientosFirebase = await obtenerMovimientosFirebase();
+                const productosFirebase = await obtenerProductosFirebase();
+                
+                console.log('📊 Datos de Firebase:');
+                console.log('  - Movimientos:', movimientosFirebase.length);
+                console.log('  - Productos:', productosFirebase.length);
+                
+                if (movimientosFirebase.length > 0) {
+                    console.log('📝 Últimos 3 movimientos:', movimientosFirebase.slice(0, 3));
+                }
+                
+                if (productosFirebase.length > 0) {
+                    console.log('📦 Últimos 3 productos:', productosFirebase.slice(0, 3));
+                }
+                
+            } catch (error) {
+                console.error('❌ Error obteniendo datos de Firebase:', error);
+            }
+            
+            // Mostrar resumen en alerta
+            const resumen = `
+🔍 DEBUG FIREBASE:
+🔐 Autenticado: ${auth.currentUser ? 'Sí' : 'No'}
+📱 Datos locales: ${Object.keys(inventario).length} productos, ${historial.length} movimientos
+🔥 Datos Firebase: ${await obtenerMovimientosFirebase().then(m => m.length).catch(() => 'Error')} movimientos
+            `;
+            
+            alert(resumen);
         }
 
         // Función para actualizar el estado de conexión

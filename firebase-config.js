@@ -258,12 +258,28 @@ window.obtenerSedesFirebase = async function() {
 window.sincronizarConFirebase = async function() {
     try {
         console.log('🔄 Iniciando sincronización con Firebase...');
+        console.log('🔐 Estado de autenticación:', auth.currentUser ? 'Autenticado' : 'No autenticado');
         actualizarIndicadorFirebase('syncing', 'Sincronizando datos con Firebase...');
         
+        // Verificar autenticación antes de continuar
+        if (!auth.currentUser) {
+            console.log('⚠️ No hay usuario autenticado, intentando autenticación anónima...');
+            await signInAnonymously(auth);
+            console.log('✅ Autenticación anónima completada');
+        }
+        
         // Obtener datos de Firebase
+        console.log('📥 Obteniendo movimientos de Firebase...');
         const movimientosFirebase = await obtenerMovimientosFirebase();
+        console.log(`📊 Movimientos obtenidos: ${movimientosFirebase.length}`);
+        
+        console.log('📥 Obteniendo productos de Firebase...');
         const productosFirebase = await obtenerProductosFirebase();
+        console.log(`📦 Productos obtenidos: ${productosFirebase.length}`);
+        
+        console.log('📥 Obteniendo sedes de Firebase...');
         const sedesFirebase = await obtenerSedesFirebase();
+        console.log(`🏢 Sedes obtenidas: ${sedesFirebase.length}`);
 
         // Actualizar localStorage con datos de Firebase
         localStorage.setItem('movimientos', JSON.stringify(movimientosFirebase));
@@ -271,13 +287,15 @@ window.sincronizarConFirebase = async function() {
         localStorage.setItem('sedes', JSON.stringify(sedesFirebase));
 
         // Reconstruir inventario desde los movimientos de Firebase
+        console.log('🔨 Reconstruyendo inventario desde movimientos de Firebase...');
         const inventarioReconstruido = {};
         const historialReconstruido = [];
         const fechasVencimientoReconstruido = {};
         const lotesReconstruido = {};
         
         // Procesar movimientos para reconstruir inventario
-        movimientosFirebase.forEach(movimiento => {
+        movimientosFirebase.forEach((movimiento, index) => {
+            console.log(`📝 Procesando movimiento ${index + 1}/${movimientosFirebase.length}:`, movimiento.producto, movimiento.tipo, movimiento.cantidad);
             const clave = `${movimiento.producto}_${movimiento.sede}`;
             
             // Inicializar producto en inventario si no existe
@@ -344,15 +362,28 @@ window.sincronizarConFirebase = async function() {
         
         // Actualizar variables globales si están disponibles
         if (typeof window !== 'undefined') {
-            if (window.inventario) window.inventario = inventarioReconstruido;
-            if (window.historial) window.historial = historialReconstruido;
-            if (window.fechasVencimiento) window.fechasVencimiento = fechasVencimientoReconstruido;
-            if (window.lotes) window.lotes = lotesReconstruido;
+            if (window.inventario) {
+                window.inventario = inventarioReconstruido;
+                console.log('🔄 Variable global inventario actualizada');
+            }
+            if (window.historial) {
+                window.historial = historialReconstruido;
+                console.log('🔄 Variable global historial actualizada');
+            }
+            if (window.fechasVencimiento) {
+                window.fechasVencimiento = fechasVencimientoReconstruido;
+                console.log('🔄 Variable global fechasVencimiento actualizada');
+            }
+            if (window.lotes) {
+                window.lotes = lotesReconstruido;
+                console.log('🔄 Variable global lotes actualizada');
+            }
         }
 
         console.log('✅ Datos sincronizados con Firebase');
         console.log(`📊 Inventario reconstruido: ${Object.keys(inventarioReconstruido).length} productos`);
         console.log(`📋 Historial sincronizado: ${historialReconstruido.length} movimientos`);
+        console.log('📦 Productos en inventario reconstruido:', Object.keys(inventarioReconstruido));
         actualizarIndicadorFirebase('connected', 'Datos sincronizados con Firebase');
         
         // Mostrar notificación de éxito
